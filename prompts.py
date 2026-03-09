@@ -15,7 +15,8 @@ def prompt_menu_choice() -> str:
     print("2. Auto Deposit to Checking")
     print("3. Transfer Between Checking and Savings")
     print("4. Post Recurring Entry")
-    print("5. Exit")
+    print("5. Post Performance Entry")
+    print("6. Exit")
     return input("Select option: ").strip()
 
 

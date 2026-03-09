@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from decimal import Decimal
+import re
 
-from models import JournalEntry
+from config import CASH_ACCOUNT, SALES_PERFORMANCES_ACCOUNT
+from models import JournalEntry, JournalLine
 from journal_logic import (
     build_mobile_deposit_entry,
     build_transfer_entry,
@@ -215,3 +218,152 @@ def _prompt_line_amounts(entry: JournalEntry, debug: bool = False) -> None:
             label = f"Credit amount for {line.account}"
             line.credit = prompt_amount_with_default(label, line.credit)
             debug_print(debug, f"Updated credit for {line.account}: {line.credit}")
+
+
+def handle_performance_entry(client: SheetsClient, debug: bool = False) -> JournalEntry:
+    print("\nPost Performance Entry")
+    
+    # Get performance schedule
+    schedule_rows = client.get_performance_schedule()
+    if not schedule_rows:
+        raise ValueError("No performances found in schedule.")
+    
+    # Display options
+    print("\nAvailable Performances:")
+    for idx, row in enumerate(schedule_rows, start=1):
+        venue = row.get("Venue", "")
+        date_str = row.get("Date", "")
+        pays = row.get("Pays", "0")
+        band_count = row.get("#in Bnd", "0")
+        print(f"{idx}. {date_str} - {venue} (Pays: {pays}, Band: {band_count})")
+    
+    # Get user selection
+    while True:
+        try:
+            choice = int(input("Select performance (number): ").strip())
+            if 1 <= choice <= len(schedule_rows):
+                selected_gig = schedule_rows[choice - 1]
+                break
+            else:
+                print(f"Please enter a number between 1 and {len(schedule_rows)}.")
+        except ValueError:
+            print("Please enter a valid number.")
+    
+    debug_print(debug, f"Selected performance: {selected_gig.get('Venue', '')}")
+    
+    # Get band members data
+    band_members = client.get_band_members()
+    debug_print(debug, f"Loaded {len(band_members)} band members")
+    
+    # Extract gig data
+    venue = selected_gig.get("Venue", "").strip()
+    date_str = selected_gig.get("Date", "").strip()
+    pays_str = selected_gig.get("Pays", "0").strip()
+    band_count_str = selected_gig.get("#in Bnd", "0").strip()
+    
+    # Clean up strings by removing non-numeric characters (except decimal point for pays)
+    pays_str = re.sub(r'[^\d.]', '', pays_str)
+    band_count_str = re.sub(r'[^\d]', '', band_count_str)
+    
+    try:
+        pays_amount = Decimal(pays_str) if pays_str else Decimal("0")
+        band_count = int(band_count_str) if band_count_str else 0
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid pays amount '{selected_gig.get('Pays', '')}' or band count '{selected_gig.get('#in Bnd', '')}'")
+    
+    # Parse the performance date
+    try:
+        entry_date = datetime.strptime(date_str, "%m/%d/%Y").date()
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid date format in schedule: '{date_str}'")
+    
+    # Calculate default sales amount
+    default_sales = pays_amount * band_count
+    
+    # Prompt for sales amount with default
+    sales_amount = prompt_amount_with_default("Sales amount", default_sales)
+    
+    # Calculate amounts
+    default_sales = pays_amount * band_count
+    cash_amount = default_sales  # Cash amount equals the original calculated sales
+    member_pay = pays_amount   # Each member gets the full pays amount
+    
+    debug_print(debug, f"Performance date: {entry_date}, Sales: ${sales_amount}, Cash: ${cash_amount}, Member pay: ${member_pay}")
+    
+    # Prompt for comment
+    comment = prompt_text("Comment (optional)").strip()
+    
+    # Build journal entry
+    description = f"Performance {venue}"
+    
+    entry = JournalEntry(
+        entry_date=entry_date,
+        description=description,
+        comment="",  # Will be set on first line only
+        lines=[],
+    )
+    
+    # Generate DocNbr: days since Nov 7, 2023 + First letters of venue name
+    venue_words = venue.split()
+    doc_suffix = "".join(word[0].upper() for word in venue_words if word)
+    base_date = date(2023, 11, 7)
+    days_since = (entry_date - base_date).days
+    doc_nbr = f"{days_since}{doc_suffix}"
+    
+    # Sales line (credit) - first line gets the comment
+    entry.lines.append(JournalLine(
+        account=SALES_PERFORMANCES_ACCOUNT,
+        debit=Decimal("0.00"),
+        credit=sales_amount,
+        comment=comment if comment else "",
+    ))
+    
+    # Receivables line (debit)
+    receivables_account = f"Rcvbls {venue}"
+    entry.lines.append(JournalLine(
+        account=receivables_account,
+        debit=sales_amount,
+        credit=Decimal("0.00"),
+        doc_type="INV",
+        doc_nbr=doc_nbr,
+    ))
+    
+    # Cash line (credit)
+    entry.lines.append(JournalLine(
+        account=CASH_ACCOUNT,
+        debit=Decimal("0.00"),
+        credit=cash_amount,
+    ))
+    
+    # Band member pay lines (debit)
+    band_positions = ["Vocal", "Piano", "Bass", "Drums", "Guitar", "Vibes"]
+    paid_members = set()
+    
+    for position in band_positions:
+        member_alias = selected_gig.get(position, "").strip()
+        if member_alias and member_alias not in paid_members:
+            member_data = band_members.get(member_alias)
+            if member_data:
+                member_name = member_data.get("Name", member_alias)
+                pay_account = f"*Pay {member_name}"
+                entry.lines.append(JournalLine(
+                    account=pay_account,
+                    debit=member_pay,
+                    credit=Decimal("0.00"),
+                ))
+                paid_members.add(member_alias)
+                debug_print(debug, f"Added pay line for {member_name}: ${member_pay}")
+    
+    # Validate entry
+    validate_entry(entry)
+    debug_print(debug, f"Performance entry validated with {len(entry.lines)} lines")
+    
+    # Move completed gig to history
+    try:
+        client.move_completed_gig_to_history(selected_gig)
+        debug_print(debug, "Moved completed gig to history")
+    except Exception as e:
+        print(f"Warning: Could not move gig to history: {e}")
+        # Don't fail the entry for this
+    
+    return entry

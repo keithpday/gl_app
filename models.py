@@ -15,6 +15,7 @@ class JournalLine:
     doc_type: str = ""
     doc_nbr: str = ""
     ext_doc: str = ""
+    comment: str = ""
 
 
 @dataclass

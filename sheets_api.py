@@ -8,15 +8,23 @@ from decimal import Decimal, InvalidOperation
 import gspread
 
 from config import (
+    BAND_MEMBERS_SHEET_NAME,
+    CASH_ACCOUNT,
     CHART_ACCOUNT_COLUMN_NUMBER,
     CHART_OF_ACCOUNTS_SHEET_NAME,
+    COMPLETED_GIGS_SHEET_NAME,
     DATE_FORMAT,
     FIRST_SEQ,
     JOURNAL_COLUMNS,
     JOURNAL_COLUMN_COUNT,
     JOURNAL_LAST_COLUMN,
     JOURNAL_SHEET_NAME,
+    MAX_SCHEDULE_ROWS_TO_DISPLAY,
+    PERFORMANCE_HISTORY_ID,
+    PERFORMANCE_SCHEDULE_ID,
     RECURRING_SHEET_NAME,
+    SALES_PERFORMANCES_ACCOUNT,
+    SCHEDULE_SHEET_NAME,
     SEQ_INCREMENT,
     SPREADSHEET_ID,
 )
@@ -247,7 +255,7 @@ class SheetsClient:
             row[header_index["DocType"]] = line.doc_type
             row[header_index["DocNbr"]] = line.doc_nbr
             row[header_index["ExtDoc"]] = line.ext_doc
-            row[header_index["Comment"]] = entry.comment
+            row[header_index["Comment"]] = line.comment or entry.comment
             rows_to_append.append(row)
 
         self._debug(
@@ -264,6 +272,86 @@ class SheetsClient:
             raise SheetsApiError(f"Unable to append journal entry: {exc}") from exc
 
         self._debug(f"Append complete for Seq {entry.seq}")
+
+    def get_performance_schedule(self) -> list[dict[str, str]]:
+        """Get the first MAX_SCHEDULE_ROWS_TO_DISPLAY rows from the performance schedule."""
+        try:
+            # Open the performance schedule spreadsheet
+            schedule_gc = gspread.service_account(self.credentials_path)
+            schedule_spreadsheet = schedule_gc.open_by_key(PERFORMANCE_SCHEDULE_ID)
+            schedule_ws = schedule_spreadsheet.worksheet(SCHEDULE_SHEET_NAME)
+            self._debug(f"Opened performance schedule worksheet: {SCHEDULE_SHEET_NAME}")
+            
+            # Get all rows but limit to MAX_SCHEDULE_ROWS_TO_DISPLAY
+            values = schedule_ws.get("A1:S")  # Up to column S (#in Bnd)
+            if not values:
+                self._debug("No performance schedule data found")
+                return []
+                
+            headers = values[0]
+            data_rows = values[1:MAX_SCHEDULE_ROWS_TO_DISPLAY + 1]  # +1 for header
+            
+            rows: list[dict[str, str]] = []
+            for row in data_rows:
+                padded = row + [""] * (len(headers) - len(row))
+                rows.append({headers[idx]: padded[idx] for idx in range(len(headers))})
+            
+            self._debug(f"Loaded {len(rows)} performance schedule row(s)")
+            return rows
+            
+        except Exception as exc:
+            raise SheetsApiError(f"Unable to read performance schedule: {exc}") from exc
+
+    def get_band_members(self) -> dict[str, dict[str, str]]:
+        """Get band members data keyed by Alias."""
+        try:
+            # Open the performance schedule spreadsheet
+            schedule_gc = gspread.service_account(self.credentials_path)
+            schedule_spreadsheet = schedule_gc.open_by_key(PERFORMANCE_SCHEDULE_ID)
+            band_ws = schedule_spreadsheet.worksheet(BAND_MEMBERS_SHEET_NAME)
+            self._debug(f"Opened band members worksheet: {BAND_MEMBERS_SHEET_NAME}")
+            
+            values = band_ws.get("A1:K")  # Up to column K (Alias)
+            if not values:
+                self._debug("No band members data found")
+                return {}
+                
+            headers = values[0]
+            data_rows = values[1:]
+            
+            members: dict[str, dict[str, str]] = {}
+            for row in data_rows:
+                if len(row) >= len(headers):
+                    member_data = {headers[idx]: row[idx] for idx in range(len(headers))}
+                    alias = member_data.get("Alias", "").strip()
+                    if alias:
+                        members[alias] = member_data
+            
+            self._debug(f"Loaded {len(members)} band member(s)")
+            return members
+            
+        except Exception as exc:
+            raise SheetsApiError(f"Unable to read band members: {exc}") from exc
+
+    def move_completed_gig_to_history(self, gig_row: dict[str, str]) -> None:
+        """Move a completed gig row to the history spreadsheet."""
+        try:
+            # Open history spreadsheet
+            history_gc = gspread.service_account(self.credentials_path)
+            history_spreadsheet = history_gc.open_by_key(PERFORMANCE_HISTORY_ID)
+            history_ws = history_spreadsheet.worksheet(COMPLETED_GIGS_SHEET_NAME)
+            self._debug(f"Opened completed gigs worksheet: {COMPLETED_GIGS_SHEET_NAME}")
+            
+            # Convert dict back to row format
+            headers = list(gig_row.keys())
+            row_values = [gig_row[header] for header in headers]
+            
+            # Append to history
+            history_ws.append_row(row_values, value_input_option="USER_ENTERED")
+            self._debug("Appended gig to history")
+            
+        except Exception as exc:
+            raise SheetsApiError(f"Unable to move gig to history: {exc}") from exc
 
     def _get_sheet_rows(self, worksheet: gspread.Worksheet) -> list[dict[str, str]]:
         try:

@@ -10,6 +10,7 @@ from config import DEFAULT_CREDENTIALS_FILE
 from entry_handlers import (
     handle_auto_deposit_entry,
     handle_mobile_deposit_entry,
+    handle_performance_entry,
     handle_recurring_entry,
     handle_transfer_entry,
 )
@@ -34,21 +35,23 @@ def print_entry_preview(entry: JournalEntry) -> None:
 
     print(
         f"{'Account':34} {'Debit':>10} {'Credit':>10} "
-        f"{'DocType':>8} {'DocNbr':>12} {'ExtDoc':>14}"
+        f"{'DocType':>8} {'DocNbr':>12} {'ExtDoc':>14} {'Comment':<20}"
     )
-    print("-" * 96)
+    print("-" * 116)
     for line in entry.lines:
         debit = f"{line.debit:.2f}" if line.debit else ""
         credit = f"{line.credit:.2f}" if line.credit else ""
+        comment = line.comment or entry.comment
         print(
             f"{line.account:34} {debit:>10} {credit:>10} "
-            f"{line.doc_type:>8} {line.doc_nbr:>12} {line.ext_doc:>14}"
+            f"{line.doc_type:>8} {line.doc_nbr:>12} {line.ext_doc:>14} {comment:<20}"
         )
-    print("-" * 96)
+    print("-" * 116)
     print(
         f"{'Totals':34} "
         f"{entry.total_debits():>10.2f} "
         f"{entry.total_credits():>10.2f}"
+        f"{'':<8} {'':<12} {'':<14} {'':<20}"
     )
 
 
@@ -104,11 +107,14 @@ def main() -> int:
             builder = lambda: handle_recurring_entry(client, debug=debug)
             debug_print(debug, "Selected workflow: Post Recurring Entry")
         elif choice == "5":
+            builder = lambda: handle_performance_entry(client, debug=debug)
+            debug_print(debug, "Selected workflow: Post Performance Entry")
+        elif choice == "6":
             debug_print(debug, "User selected Exit")
             print("Goodbye.")
             return 0
         else:
-            print("Please choose 1, 2, 3, 4, or 5.")
+            print("Please choose 1, 2, 3, 4, 5, or 6.")
             continue
 
         try:

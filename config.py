@@ -19,6 +19,16 @@ JOURNAL_SHEET_NAME = "GenEnt"
 CHART_OF_ACCOUNTS_SHEET_NAME = "ChAccts"
 RECURRING_SHEET_NAME = "RecEnt"
 
+# Performance tracking sheets
+PERFORMANCE_SCHEDULE_ID = "1WS4-Y2M7qA0bqMhluvWOg3GiUyScBSY3ZIBPoNS7Tao"
+PERFORMANCE_HISTORY_ID = "14c2cdCh0srxI40RGQomNPpXXWCT5IV8rcqVqw92N03U"
+SCHEDULE_SHEET_NAME = "CurrentYrSched"
+BAND_MEMBERS_SHEET_NAME = "BandMembers"
+COMPLETED_GIGS_SHEET_NAME = "CompletedGigs"
+
+# Performance constants
+MAX_SCHEDULE_ROWS_TO_DISPLAY = 8
+
 # Journal table boundaries (ignore anything to the right of M)
 JOURNAL_LAST_COLUMN = "M"
 JOURNAL_COLUMN_COUNT = 13
@@ -40,6 +50,8 @@ JOURNAL_COLUMNS = [
 # Known accounts
 CHECKING_ACCOUNT = "Checking - 0520"
 SAVINGS_ACCOUNT = "Savings - 0520"
+CASH_ACCOUNT = "Cash"
+SALES_PERFORMANCES_ACCOUNT = "Sales - Performances"
 
 # Seq handling
 SEQ_INCREMENT = 100

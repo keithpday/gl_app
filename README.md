@@ -5,7 +5,10 @@ This is a terminal-based starter framework for posting journal entries into your
 ## Current entry types
 
 1. Mobile Deposit to Checking
-2. Transfer Between Checking and Savings
+2. Auto Deposit to Checking
+3. Transfer Between Checking and Savings
+4. Post Recurring Entry
+5. Post Performance Entry
 
 ## Design goal
 
