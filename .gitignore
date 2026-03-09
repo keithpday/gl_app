@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# Secrets
+gl-app-credentials.json
+credentials.json
+
+# Environment
+.env

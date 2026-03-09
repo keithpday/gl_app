@@ -1,0 +1,54 @@
+"""Configuration for the Mixed Nuts general-ledger journal entry app."""
+
+from pathlib import Path
+import os
+
+# Program / environment
+PROGRAM_NAME = Path(__file__).stem
+
+# Google credentials
+DEFAULT_CREDENTIALS_FILE = os.environ.get(
+    "GOOGLE_OAUTH_CLIENT",
+    "/home/keith/PythonProjects/projects/Mixed_Nuts/config/gl-app-credentials.json",
+)
+
+# Google Sheets document
+SPREADSHEET_ID = "1q9chtQNZnO5QcDBaYTjnV0sITxo7zAvTHfLT7MkZybs"
+SPREADSHEET_NAME = "Current Quarter Booking and General Ledger"
+JOURNAL_SHEET_NAME = "GenEnt"
+CHART_OF_ACCOUNTS_SHEET_NAME = "ChAccts"
+RECURRING_SHEET_NAME = "RecEnt"
+
+# Journal table boundaries (ignore anything to the right of M)
+JOURNAL_LAST_COLUMN = "M"
+JOURNAL_COLUMN_COUNT = 13
+
+# Column names in GenEnt / RecEnt that this program writes to
+JOURNAL_COLUMNS = [
+    "Seq",
+    "Date",
+    "Description",
+    "Account",
+    "Debit",
+    "Credit",
+    "DocType",
+    "DocNbr",
+    "ExtDoc",
+    "Comment",
+]
+
+# Known accounts
+CHECKING_ACCOUNT = "Checking - 0520"
+SAVINGS_ACCOUNT = "Savings - 0520"
+
+# Seq handling
+SEQ_INCREMENT = 100
+FIRST_SEQ = 100
+
+# Chart of accounts layout
+CHART_ACCOUNT_COLUMN_NUMBER = 7  # Column G
+CHART_ACCOUNT_HEADER = "Individual Accounts"
+
+# Date formatting used when writing to the sheet
+DATE_FORMAT = "%Y-%m-%d"
+DISPLAY_DATE_FORMAT = "%Y-%m-%d"
