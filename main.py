@@ -53,6 +53,11 @@ def print_entry_preview(entry: JournalEntry) -> None:
         f"{entry.total_credits():>10.2f}"
         f"{'':<8} {'':<12} {'':<14} {'':<20}"
     )
+    
+    # Warn if out of balance
+    if not entry.is_balanced():
+        print("\n⚠️  WARNING: Entry is OUT OF BALANCE!")
+        print(f"   Difference: {entry.total_debits() - entry.total_credits():.2f}")
 
 
 def parse_args() -> tuple[str, bool]:
@@ -128,7 +133,11 @@ def main() -> int:
 
             print_entry_preview(entry)
 
-            if prompt_yes_no("Post this entry", default_yes=False):
+            prompt_msg = "Post this entry"
+            if not entry.is_balanced():
+                prompt_msg += " (out of balance)"
+            
+            if prompt_yes_no(prompt_msg, default_yes=False):
                 debug_print(debug, f"Posting entry Seq {entry.seq}")
                 client.append_entry(entry)
                 print(f"Entry {entry.seq} posted successfully.")

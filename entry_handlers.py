@@ -303,11 +303,19 @@ def handle_performance_entry(client: SheetsClient, debug: bool = False) -> Journ
         lines=[],
     )
     
-    # Generate DocNbr: days since Nov 7, 2023 + First letters of venue name
+    # Generate DocNbr: days since Nov 7, 2023 + First letters of venue name (inclusive)
     venue_words = venue.split()
-    doc_suffix = "".join(word[0].upper() for word in venue_words if word)
     base_date = date(2023, 11, 7)
-    days_since = (entry_date - base_date).days
+    days_since = (entry_date - base_date).days + 1
+    
+    # After 3/21/2026 or if invoice number > 866, limit to first 4 words only
+    cutoff_date = date(2026, 3, 21)
+    if entry_date > cutoff_date or days_since > 866:
+        words_to_use = venue_words[:4]  # First 4 words max
+    else:
+        words_to_use = venue_words  # All words
+    
+    doc_suffix = "".join(word[0].upper() for word in words_to_use if word)
     doc_nbr = f"{days_since}{doc_suffix}"
     
     # Sales line (credit) - first line gets the comment
@@ -341,7 +349,8 @@ def handle_performance_entry(client: SheetsClient, debug: bool = False) -> Journ
     
     for position in band_positions:
         member_alias = selected_gig.get(position, "").strip()
-        if member_alias and member_alias not in paid_members:
+        # Treat "None" (string) the same as blank/empty
+        if member_alias and member_alias != "None" and member_alias not in paid_members:
             member_data = band_members.get(member_alias)
             if member_data:
                 member_name = member_data.get("Name", member_alias)

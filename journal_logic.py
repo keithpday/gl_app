@@ -34,10 +34,6 @@ def validate_account(account: str, valid_accounts: Iterable[str]) -> str:
 def validate_entry(entry: JournalEntry) -> None:
     if not entry.lines:
         raise JournalLogicError("Journal entry must contain at least one line.")
-    if not entry.is_balanced():
-        raise JournalLogicError(
-            f"Entry is out of balance. Debits={entry.total_debits()} Credits={entry.total_credits()}"
-        )
 
 
 def build_transfer_entry(

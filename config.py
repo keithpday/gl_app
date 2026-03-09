@@ -62,5 +62,5 @@ CHART_ACCOUNT_COLUMN_NUMBER = 7  # Column G
 CHART_ACCOUNT_HEADER = "Individual Accounts"
 
 # Date formatting used when writing to the sheet
-DATE_FORMAT = "%Y-%m-%d"
-DISPLAY_DATE_FORMAT = "%Y-%m-%d"
+DATE_FORMAT = "%m/%d/%Y"
+DISPLAY_DATE_FORMAT = "%m/%d/%Y"
