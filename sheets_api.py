@@ -277,7 +277,6 @@ class SheetsClient:
 
         # Set formulas for DaysOld (K) and Balance Remaining (L) columns
         new_row_count = self.journal_ws.row_count
-        updates = []
         for i in range(old_row_count + 1, new_row_count + 1):
             days_old_formula = (
                 f'=IF(OR(G{i}="INV", G{i}="PMT", G{i}="DEP", G{i}="CRN", G{i}="ADJ", G{i}="ACH"), '
@@ -292,15 +291,12 @@ class SheetsClient:
                 f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ADJ") + '
                 f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ACH"))'
             )
-            updates.append({'range': f'K{i}', 'values': [[days_old_formula]], 'valueInputOption': 'USER_ENTERED'})
-            updates.append({'range': f'L{i}', 'values': [[balance_formula]], 'valueInputOption': 'USER_ENTERED'})
-
-        if updates:
             try:
-                self.journal_ws.batch_update(updates)
-                self._debug(f"Updated formulas for {len(updates)//2} new rows")
+                self.journal_ws.update_acell(f'K{i}', days_old_formula, value_input_option='USER_ENTERED')
+                self.journal_ws.update_acell(f'L{i}', balance_formula, value_input_option='USER_ENTERED')
+                self._debug(f"Updated formulas for row {i}")
             except Exception as exc:
-                raise SheetsApiError(f"Unable to update formulas: {exc}") from exc
+                raise SheetsApiError(f"Unable to update formulas for row {i}: {exc}") from exc
 
     def get_performance_schedule(self) -> list[dict[str, str]]:
         """Get the first MAX_SCHEDULE_ROWS_TO_DISPLAY rows from the performance schedule."""
