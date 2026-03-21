@@ -292,8 +292,8 @@ class SheetsClient:
                 f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ADJ") + '
                 f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ACH"))'
             )
-            updates.append({'range': f'K{i}', 'values': [[days_old_formula]]})
-            updates.append({'range': f'L{i}', 'values': [[balance_formula]]})
+            updates.append({'range': f'K{i}', 'values': [[days_old_formula]], 'valueInputOption': 'USER_ENTERED'})
+            updates.append({'range': f'L{i}', 'values': [[balance_formula]], 'valueInputOption': 'USER_ENTERED'})
 
         if updates:
             try:
