@@ -263,6 +263,8 @@ class SheetsClient:
             f"for Seq {entry.seq}"
         )
 
+        old_row_count = self.journal_ws.row_count
+
         try:
             self.journal_ws.append_rows(
                 rows_to_append,
@@ -272,6 +274,33 @@ class SheetsClient:
             raise SheetsApiError(f"Unable to append journal entry: {exc}") from exc
 
         self._debug(f"Append complete for Seq {entry.seq}")
+
+        # Set formulas for DaysOld (K) and Balance Remaining (L) columns
+        new_row_count = self.journal_ws.row_count
+        updates = []
+        for i in range(old_row_count + 1, new_row_count + 1):
+            days_old_formula = (
+                f'=IF(OR(G{i}="INV", G{i}="PMT", G{i}="DEP", G{i}="CRN", G{i}="ADJ", G{i}="ACH"), '
+                f'IF(ISBLANK(H{i}), "", '
+                f'(DATE(2023,11,7)+(VALUE(IFERROR(REGEXEXTRACT(H{i}, "\\d+"),0))-1) - TODAY()) * -1 ), "")'
+            )
+            balance_formula = (
+                f'=SUMIFS($E:$E,$H:$H,$H{i},$G:$G,"INV") - '
+                f'(SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"PMT") + '
+                f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"DEP") + '
+                f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"CRN") + '
+                f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ADJ") + '
+                f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ACH"))'
+            )
+            updates.append({'range': f'K{i}', 'values': [[days_old_formula]]})
+            updates.append({'range': f'L{i}', 'values': [[balance_formula]]})
+
+        if updates:
+            try:
+                self.journal_ws.batch_update(updates)
+                self._debug(f"Updated formulas for {len(updates)//2} new rows")
+            except Exception as exc:
+                raise SheetsApiError(f"Unable to update formulas: {exc}") from exc
 
     def get_performance_schedule(self) -> list[dict[str, str]]:
         """Get the first MAX_SCHEDULE_ROWS_TO_DISPLAY rows from the performance schedule."""
@@ -353,6 +382,68 @@ class SheetsClient:
         except Exception as exc:
             raise SheetsApiError(f"Unable to move gig to history: {exc}") from exc
 
+    def move_completed_gigs_before_date(self, cutoff_date: date) -> int:
+        """Copy rows from CurrentYrSched to CompletedGigs where Date <= cutoff_date, then delete them from schedule."""
+        try:
+            schedule_gc = gspread.service_account(self.credentials_path)
+            schedule_spreadsheet = schedule_gc.open_by_key(PERFORMANCE_SCHEDULE_ID)
+            schedule_ws = schedule_spreadsheet.worksheet(SCHEDULE_SHEET_NAME)
+            self._debug(f"Opened schedule worksheet: {SCHEDULE_SHEET_NAME}")
+
+            history_gc = gspread.service_account(self.credentials_path)
+            history_spreadsheet = history_gc.open_by_key(PERFORMANCE_HISTORY_ID)
+            history_ws = history_spreadsheet.worksheet(COMPLETED_GIGS_SHEET_NAME)
+            self._debug(f"Opened completed gigs worksheet: {COMPLETED_GIGS_SHEET_NAME}")
+
+            values = schedule_ws.get("A1:S")
+            if not values or len(values) < 2:
+                self._debug("No schedule rows available in CurrentYrSched")
+                return 0
+
+            headers = values[0]
+            data_rows = values[1:]
+
+            # Determine date column index
+            if "Date" in headers:
+                date_idx = headers.index("Date")
+            else:
+                raise SheetsApiError("CurrentYrSched is missing a 'Date' header in A1:S")
+
+            rows_to_move = []
+            rows_to_delete_indices = []
+
+            for idx, row in enumerate(data_rows, start=2):
+                # Ensure first 19 columns are present
+                row_padded = (row + [""] * 19)[:19]
+                raw_date = row_padded[date_idx]
+                row_date = _parse_date_strict(raw_date)
+
+                if row_date is None:
+                    self._debug(f"Skipping unmatched date in row {idx}: {raw_date!r}")
+                    continue
+
+                if row_date <= cutoff_date:
+                    rows_to_move.append(row_padded)
+                    rows_to_delete_indices.append(idx)
+
+            if not rows_to_move:
+                self._debug(f"No rows found with Date <= {cutoff_date}")
+                return 0
+
+            # Append rows to history in bulk
+            history_ws.append_rows(rows_to_move, value_input_option="USER_ENTERED")
+            self._debug(f"Appended {len(rows_to_move)} completed gig(s) to history")
+
+            # Delete rows starting from the bottom to avoid index shift
+            for row_index in reversed(rows_to_delete_indices):
+                schedule_ws.delete_rows(row_index)
+            self._debug(f"Deleted {len(rows_to_delete_indices)} row(s) from schedule")
+
+            return len(rows_to_move)
+
+        except Exception as exc:
+            raise SheetsApiError(f"Unable to move completed gigs by date: {exc}") from exc
+
     def _get_sheet_rows(self, worksheet: gspread.Worksheet) -> list[dict[str, str]]:
         try:
             self._debug(f"Reading worksheet rows A:{JOURNAL_LAST_COLUMN} from {worksheet.title}")
@@ -414,3 +505,25 @@ def _parse_date(value: object) -> date:
             pass
 
     return date.today()
+
+
+def _parse_date_strict(value: object) -> date | None:
+    text = str(value).strip()
+    if not text:
+        return None
+
+    # Try common date formats and known datetime representations
+    formats = ["%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y", "%m/%d/%Y %H:%M:%S", "%m/%d/%y", "%m/%d/%y %H:%M:%S"]
+    for fmt in formats:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+
+    # Try ISO parsing as a last resort
+    try:
+        dt = datetime.fromisoformat(text)
+        return dt.date()
+    except ValueError:
+        return None
+
