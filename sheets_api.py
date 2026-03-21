@@ -292,8 +292,8 @@ class SheetsClient:
                 f'SUMIFS($F:$F,$H:$H,$H{i},$G:$G,"ACH"))'
             )
             try:
-                self.journal_ws.update_acell(f'K{i}', days_old_formula, value_input_option='USER_ENTERED')
-                self.journal_ws.update_acell(f'L{i}', balance_formula, value_input_option='USER_ENTERED')
+                self.journal_ws.update(f'K{i}', [[days_old_formula]], value_input_option='USER_ENTERED')
+                self.journal_ws.update(f'L{i}', [[balance_formula]], value_input_option='USER_ENTERED')
                 self._debug(f"Updated formulas for row {i}")
             except Exception as exc:
                 raise SheetsApiError(f"Unable to update formulas for row {i}: {exc}") from exc
