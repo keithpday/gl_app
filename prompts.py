@@ -16,7 +16,8 @@ def prompt_menu_choice() -> str:
     print("3. Transfer Between Checking and Savings")
     print("4. Post Recurring Entry")
     print("5. Post Performance Entry")
-    print("6. Exit")
+    print("6. Move Completed Gigs to History by Date")
+    print("7. Exit")
     return input("Select option: ").strip()
 
 

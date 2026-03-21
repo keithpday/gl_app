@@ -16,7 +16,7 @@ from entry_handlers import (
 )
 from journal_logic import JournalLogicError
 from models import JournalEntry
-from prompts import prompt_menu_choice, prompt_yes_no
+from prompts import prompt_menu_choice, prompt_yes_no, prompt_date
 from sheets_api import SheetsApiError, SheetsClient
 
 
@@ -115,11 +115,20 @@ def main() -> int:
             builder = lambda: handle_performance_entry(client, debug=debug)
             debug_print(debug, "Selected workflow: Post Performance Entry")
         elif choice == "6":
+            # Special path: move completed gigs from CurrentYrSched to completed history
+            try:
+                cut_off_date = prompt_date()
+                moved = client.move_completed_gigs_before_date(cut_off_date)
+                print(f"Moved {moved} row(s) with Date <= {cut_off_date} to Completed Gig History.")
+            except (SheetsApiError, ValueError) as exc:
+                print(f"Error: {exc}")
+            continue
+        elif choice == "7":
             debug_print(debug, "User selected Exit")
             print("Goodbye.")
             return 0
         else:
-            print("Please choose 1, 2, 3, 4, 5, or 6.")
+            print("Please choose 1, 2, 3, 4, 5, 6, or 7.")
             continue
 
         try:
