@@ -6,15 +6,17 @@ from datetime import date, datetime
 from decimal import Decimal
 import re
 
-from config import CASH_ACCOUNT, SALES_PERFORMANCES_ACCOUNT
-from models import JournalEntry, JournalLine
+from config import CASH_ACCOUNT, CASH_IN_CD_CASE_ACCOUNT, SALES_PERFORMANCES_ACCOUNT
+from models import CDProduct, JournalEntry, JournalLine
 from journal_logic import (
+    build_cd_sales_entry,
     build_mobile_deposit_entry,
     build_transfer_entry,
     validate_entry,
 )
 from prompts import (
     prompt_account_by_prefix,
+    prompt_account_from_list,
     prompt_amount,
     prompt_amount_with_default,
     prompt_check_number,
@@ -375,4 +377,71 @@ def handle_performance_entry(client: SheetsClient, debug: bool = False) -> Journ
         print(f"Warning: Could not move gig to history: {e}")
         # Don't fail the entry for this
     
+    return entry
+
+
+def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalEntry:
+    print("\nCD Sales / Donation Jar Entry")
+
+    entry_date = prompt_date()
+    debug_print(debug, f"CD sales date entered: {entry_date}")
+
+    products = client.get_active_cd_products()
+    if not products:
+        raise ValueError("No active CD products found in CD_Master.")
+
+    print("\nActive CDs:")
+    for idx, product in enumerate(products, start=1):
+        print(
+            f"{idx}. {product.cd_name} - Sell: {product.sell_price:.2f}, Cost: {product.unit_cost:.2f}, "
+            f"Sales Acct: {product.sales_account}"
+        )
+
+    while True:
+        try:
+            selection = int(input("Select CD type (number): ").strip())
+            if 1 <= selection <= len(products):
+                cd = products[selection - 1]
+                break
+            print(f"Please enter a number between 1 and {len(products)}.")
+        except ValueError:
+            print("Please enter a valid number.")
+
+    quantity = prompt_amount()
+    payment_method = prompt_account_from_list(
+        ["Cash", "Venmo", "Helcim"],
+        label="Payment method",
+    )
+    fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
+
+    print("Total collected:")
+    total_collected = prompt_amount()
+    if total_collected < Decimal("0.00"):
+        raise ValueError("Total collected cannot be negative.")
+
+    comment_default = cd.default_comment or cd.cd_name
+    comment = prompt_text("Comment", default=comment_default)
+
+    debug_print(debug, f"CD selected: {cd.cd_name}")
+    debug_print(debug, f"Quantity entered: {quantity}")
+    debug_print(debug, f"Payment method entered: {payment_method}")
+    debug_print(debug, f"Fee total entered: {fee_total}")
+    debug_print(debug, f"Total collected entered: {total_collected}")
+    debug_print(debug, f"Comment: {comment}")
+
+    entry = build_cd_sales_entry(
+        entry_date=entry_date,
+        cd_product=cd,
+        quantity=quantity,
+        payment_method=payment_method,
+        fee_total=fee_total,
+        total_collected=total_collected,
+        comment=comment,
+    )
+
+    if total_collected < (cd.sell_price * quantity):
+        print("\nWARNING: Total collected is less than expected sales revenue.")
+        debug_print(debug, "Total collected less than sales revenue")
+
+    debug_print(debug, f"CD sales entry built with {len(entry.lines)} lines")
     return entry
