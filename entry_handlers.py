@@ -21,6 +21,7 @@ from prompts import (
     prompt_amount_with_default,
     prompt_check_number,
     prompt_date,
+    prompt_int,
     prompt_open_invoice_or_manual,
     prompt_seq_number,
     prompt_text,
