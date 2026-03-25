@@ -9,6 +9,7 @@ import re
 from config import (
     CASH_ACCOUNT,
     CASH_IN_CD_CASE_ACCOUNT,
+    CASH_IN_DUO_GEAR_ACCOUNT,
     CHECKING_ACCOUNT,
     SALES_PERFORMANCES_ACCOUNT,
     VENMO_ACCOUNT,
@@ -438,12 +439,16 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
     comment_default = cd.default_comment or cd.cd_name
     comment = prompt_text("Comment", default=comment_default)
 
-    deposit_account = {
-        "Cash": CASH_IN_CD_CASE_ACCOUNT,
-        "Check": CHECKING_ACCOUNT,
-        "Helcim": CHECKING_ACCOUNT,
-        "Venmo": VENMO_ACCOUNT,
-    }.get(payment_method, CASH_IN_CD_CASE_ACCOUNT)
+    # Determine deposit account by payment method and source location
+    if sold_from_location == "From Duo_Gear_Qty":
+        deposit_account = CASH_IN_DUO_GEAR_ACCOUNT
+    else:
+        deposit_account = {
+            "Cash": CASH_IN_CD_CASE_ACCOUNT,
+            "Check": CHECKING_ACCOUNT,
+            "Helcim": CHECKING_ACCOUNT,
+            "Venmo": VENMO_ACCOUNT,
+        }.get(payment_method, CASH_IN_CD_CASE_ACCOUNT)
 
     debug_print(debug, f"CD selected: {cd.cd_name}")
     debug_print(debug, f"Quantity entered: {quantity}")
