@@ -56,7 +56,7 @@ CASH_IN_DUO_GEAR_ACCOUNT = "Cash in Duo Gear"
 CHECKING_ACCOUNT = "Checking - 0520"
 VENMO_ACCOUNT = "Venmo"
 SALES_PERFORMANCES_ACCOUNT = "Sales - Performances"
-DONATIONS_ACCOUNT = "Donations"
+DONATIONS_ACCOUNT = "Cash Contributions"
 CASH_PAYMENT_FEES_ACCOUNT = "Cash Payment Fees"
 
 # CD master sheet
