@@ -178,7 +178,7 @@ class SheetsClient:
                     ammo_qty=_parse_decimal(padded[header_index["Ammo_Qty"]]),
                     duo_gear_qty=_parse_decimal(padded[header_index["Duo_Gear_Qty"]]),
                     shelf_qty=_parse_decimal(padded[header_index["Shelf_Qty"]]),
-                    last_inventory_date=str(padded[header_index.get("Last_Inventory_Date", "")]).strip(),
+                    last_inventory_date=str(padded[header_index["Last_Inventory_Date"]]).strip() if "Last_Inventory_Date" in header_index else "",
                 )
             except Exception as exc:
                 raise SheetsApiError(f"Invalid CD_Master row data: {exc}") from exc
