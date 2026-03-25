@@ -407,7 +407,7 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
         except ValueError:
             print("Please enter a valid number.")
 
-    quantity = prompt_amount()
+    quantity = prompt_int("Quantity sold")
     payment_method = prompt_account_from_list(
         ["Cash", "Venmo", "Helcim"],
         label="Payment method",
