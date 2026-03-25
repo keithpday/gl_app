@@ -10,10 +10,15 @@ import gspread
 from config import (
     BAND_MEMBERS_SHEET_NAME,
     CASH_ACCOUNT,
+    CASH_IN_CD_CASE_ACCOUNT,
+    CASH_PAYMENT_FEES_ACCOUNT,
+    CD_MASTER_SHEET_NAME,
+    CD_MASTER_SPREADSHEET_ID,
     CHART_ACCOUNT_COLUMN_NUMBER,
     CHART_OF_ACCOUNTS_SHEET_NAME,
     COMPLETED_GIGS_SHEET_NAME,
     DATE_FORMAT,
+    DONATIONS_ACCOUNT,
     FIRST_SEQ,
     JOURNAL_COLUMNS,
     JOURNAL_COLUMN_COUNT,
@@ -28,7 +33,7 @@ from config import (
     SEQ_INCREMENT,
     SPREADSHEET_ID,
 )
-from models import JournalEntry, JournalLine, OpenInvoice
+from models import CDProduct, JournalEntry, JournalLine, OpenInvoice
 
 
 class SheetsApiError(Exception):
@@ -91,6 +96,93 @@ class SheetsClient:
         unique_accounts = sorted(set(accounts))
         self._debug(f"Loaded {len(unique_accounts)} unique valid accounts")
         return unique_accounts
+
+    def get_active_cd_products(self) -> list[CDProduct]:
+        try:
+            self._debug(f"Opening CD master sheet: {CD_MASTER_SHEET_NAME}")
+            cd_spreadsheet = self.gc.open_by_key(CD_MASTER_SPREADSHEET_ID)
+            cd_ws = cd_spreadsheet.worksheet(CD_MASTER_SHEET_NAME)
+            values = cd_ws.get("A1:V")
+        except Exception as exc:
+            raise SheetsApiError(f"Unable to read CD master data: {exc}") from exc
+
+        if not values:
+            self._debug("No CD master products found")
+            return []
+
+        headers = values[0]
+        required = [
+            "CD_ID",
+            "CD_Name",
+            "Active",
+            "Sort_Order",
+            "Sell_Price",
+            "Unit_Cost",
+            "Sales_Account",
+            "COGS_Account",
+            "Inventory_Account",
+            "Has_Royalty",
+            "Royalty_Artist_Percent",
+            "Royalty_Musicians_Percent",
+            "Royalty_Artist_Expense_Account",
+            "Royalty_Artist_Payable_Account",
+            "Royalty_Musicians_Expense_Account",
+            "Royalty_Musicians_Payable_Account",
+            "Category",
+        ]
+        missing = [name for name in required if name not in headers]
+        if missing:
+            raise SheetsApiError(f"CD_Master is missing expected columns: {missing}")
+
+        header_index = {name: idx for idx, name in enumerate(headers)}
+        products: list[CDProduct] = []
+
+        for row in values[1:]:
+            padded = row + [""] * (len(headers) - len(row))
+            active_val = padded[header_index["Active"]]
+            active = False
+            if isinstance(active_val, bool):
+                active = active_val
+            else:
+                active_text = str(active_val).strip().lower()
+                active = active_text in {"true", "1", "yes", "y"}
+
+            if not active:
+                continue
+
+            try:
+                default_comment = ""
+                if "Default_Comment" in header_index:
+                    default_comment = str(padded[header_index["Default_Comment"]]).strip()
+
+                product = CDProduct(
+                    cd_id=str(padded[header_index["CD_ID"]]).strip(),
+                    cd_name=str(padded[header_index["CD_Name"]]).strip(),
+                    sell_price=_parse_decimal(padded[header_index["Sell_Price"]]),
+                    unit_cost=_parse_decimal(padded[header_index["Unit_Cost"]]),
+                    sales_account=str(padded[header_index["Sales_Account"]]).strip(),
+                    cogs_account=str(padded[header_index["COGS_Account"]]).strip(),
+                    inventory_account=str(padded[header_index["Inventory_Account"]]).strip(),
+                    has_royalty=str(padded[header_index["Has_Royalty"]]).strip().lower() in {"true", "1", "yes", "y"},
+                    royalty_artist_percent=_parse_decimal(padded[header_index["Royalty_Artist_Percent"]]),
+                    royalty_musicians_percent=_parse_decimal(padded[header_index["Royalty_Musicians_Percent"]]),
+                    royalty_artist_expense_account=str(padded[header_index["Royalty_Artist_Expense_Account"]]).strip(),
+                    royalty_artist_payable_account=str(padded[header_index["Royalty_Artist_Payable_Account"]]).strip(),
+                    royalty_musicians_expense_account=str(padded[header_index["Royalty_Musicians_Expense_Account"]]).strip(),
+                    royalty_musicians_payable_account=str(padded[header_index["Royalty_Musicians_Payable_Account"]]).strip(),
+                    default_comment=default_comment,
+                    category=str(padded[header_index["Category"]]).strip(),
+                )
+            except Exception as exc:
+                raise SheetsApiError(f"Invalid CD_Master row data: {exc}") from exc
+
+            sort_order = _parse_int(padded[header_index["Sort_Order"]]) or 0
+            products.append((sort_order, product))
+
+        products.sort(key=lambda tup: tup[0])
+        sorted_products = [tup[1] for tup in products]
+        self._debug(f"Loaded {len(sorted_products)} active CD products")
+        return sorted_products
 
     def get_next_seq(self) -> int:
         try:
