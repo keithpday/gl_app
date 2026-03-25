@@ -422,9 +422,10 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
         label="Payment method",
     )
 
-    fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
-    if payment_method in {"Cash", "Check"} and fee_total > Decimal("0.00"):
-        print("Note: Cash/Check sales should have zero fees; overriding fee to 0.00.")
+    # Only prompt for fees for payment methods that might have them
+    if payment_method in ["Helcim", "Venmo"]:
+        fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
+    else:
         fee_total = Decimal("0.00")
 
     sold_from_location = prompt_account_from_list(
