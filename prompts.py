@@ -17,7 +17,8 @@ def prompt_menu_choice() -> str:
     print("4. Post Recurring Entry")
     print("5. Post Performance Entry")
     print("6. Move Completed Gigs to History by Date")
-    print("7. Exit")
+    print("7. CD Sales / Donation Jar Entry")
+    print("8. Exit")
     return input("Select option: ").strip()
 
 
@@ -50,6 +51,19 @@ def prompt_amount() -> Decimal:
             return money(raw)
         except (JournalLogicError, ArithmeticError, ValueError) as exc:
             print(f"Invalid amount: {exc}")
+
+
+def prompt_int(label: str) -> int:
+    while True:
+        raw = input(f"{label}: ").strip()
+        try:
+            value = int(float(raw))
+            if value <= 0:
+                print("Please enter a positive integer.")
+                continue
+            return value
+        except (ValueError, TypeError):
+            print("Please enter a valid integer.")
 
 
 def prompt_amount_with_default(label: str, default_amount: Decimal) -> Decimal:

@@ -9,6 +9,7 @@ from pathlib import Path
 from config import DEFAULT_CREDENTIALS_FILE
 from entry_handlers import (
     handle_auto_deposit_entry,
+    handle_cd_sales_entry,
     handle_mobile_deposit_entry,
     handle_performance_entry,
     handle_recurring_entry,
@@ -124,11 +125,14 @@ def main() -> int:
                 print(f"Error: {exc}")
             continue
         elif choice == "7":
+            builder = lambda: handle_cd_sales_entry(client, debug=debug)
+            debug_print(debug, "Selected workflow: CD Sales / Donation Jar Entry")
+        elif choice == "8":
             debug_print(debug, "User selected Exit")
             print("Goodbye.")
             return 0
         else:
-            print("Please choose 1, 2, 3, 4, 5, 6, or 7.")
+            print("Please choose 1, 2, 3, 4, 5, 6, 7, or 8.")
             continue
 
         try:
