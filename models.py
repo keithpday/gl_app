@@ -44,6 +44,30 @@ class OpenInvoice:
 
 
 @dataclass
+class CDProduct:
+    cd_id: str
+    cd_name: str
+    sell_price: Decimal
+    unit_cost: Decimal
+    sales_account: str
+    cogs_account: str
+    inventory_account: str
+    has_royalty: bool
+    royalty_artist_percent: Decimal
+    royalty_musicians_percent: Decimal
+    royalty_artist_expense_account: str
+    royalty_artist_payable_account: str
+    royalty_musicians_expense_account: str
+    royalty_musicians_payable_account: str
+    default_comment: str
+    category: str
+    ammo_qty: Decimal = Decimal("0.00")
+    duo_gear_qty: Decimal = Decimal("0.00")
+    shelf_qty: Decimal = Decimal("0.00")
+    last_inventory_date: str = ""
+
+
+@dataclass
 class RecurringEntrySummary:
     seq: int
     description: str

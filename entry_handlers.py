@@ -6,7 +6,13 @@ from datetime import date, datetime
 from decimal import Decimal
 import re
 
-from config import CASH_ACCOUNT, CASH_IN_CD_CASE_ACCOUNT, SALES_PERFORMANCES_ACCOUNT
+from config import (
+    CASH_ACCOUNT,
+    CASH_IN_CD_CASE_ACCOUNT,
+    CHECKING_ACCOUNT,
+    SALES_PERFORMANCES_ACCOUNT,
+    VENMO_ACCOUNT,
+)
 from models import CDProduct, JournalEntry, JournalLine
 from journal_logic import (
     build_cd_sales_entry,
@@ -408,24 +414,42 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
         except ValueError:
             print("Please enter a valid number.")
 
-    quantity = prompt_int("Quantity sold")
+    quantity = Decimal(prompt_int("Quantity sold"))
+
     payment_method = prompt_account_from_list(
-        ["Cash", "Venmo", "Helcim"],
+        ["Cash", "Check", "Helcim", "Venmo"],
         label="Payment method",
     )
-    fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
 
-    print("Total collected:")
-    total_collected = prompt_amount()
+    fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
+    if payment_method in {"Cash", "Check"} and fee_total > Decimal("0.00"):
+        print("Note: Cash/Check sales should have zero fees; overriding fee to 0.00.")
+        fee_total = Decimal("0.00")
+
+    sold_from_location = prompt_account_from_list(
+        ["From Ammo_Qty", "From Duo_Gear_Qty"],
+        label="Sold from location",
+    )
+
+    total_collected = prompt_amount_with_default("Total collected", cd.sell_price * quantity)
     if total_collected < Decimal("0.00"):
         raise ValueError("Total collected cannot be negative.")
 
     comment_default = cd.default_comment or cd.cd_name
     comment = prompt_text("Comment", default=comment_default)
 
+    deposit_account = {
+        "Cash": CASH_IN_CD_CASE_ACCOUNT,
+        "Check": CHECKING_ACCOUNT,
+        "Helcim": CHECKING_ACCOUNT,
+        "Venmo": VENMO_ACCOUNT,
+    }.get(payment_method, CASH_IN_CD_CASE_ACCOUNT)
+
     debug_print(debug, f"CD selected: {cd.cd_name}")
     debug_print(debug, f"Quantity entered: {quantity}")
     debug_print(debug, f"Payment method entered: {payment_method}")
+    debug_print(debug, f"Deposit account: {deposit_account}")
+    debug_print(debug, f"Sold from location: {sold_from_location}")
     debug_print(debug, f"Fee total entered: {fee_total}")
     debug_print(debug, f"Total collected entered: {total_collected}")
     debug_print(debug, f"Comment: {comment}")
@@ -435,8 +459,10 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
         cd_product=cd,
         quantity=quantity,
         payment_method=payment_method,
+        deposit_account=deposit_account,
         fee_total=fee_total,
         total_collected=total_collected,
+        sold_from_location=sold_from_location,
         comment=comment,
     )
 

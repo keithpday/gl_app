@@ -128,6 +128,9 @@ class SheetsClient:
             "Royalty_Artist_Payable_Account",
             "Royalty_Musicians_Expense_Account",
             "Royalty_Musicians_Payable_Account",
+            "Ammo_Qty",
+            "Duo_Gear_Qty",
+            "Shelf_Qty",
             "Category",
         ]
         missing = [name for name in required if name not in headers]
@@ -172,6 +175,10 @@ class SheetsClient:
                     royalty_musicians_payable_account=str(padded[header_index["Royalty_Musicians_Payable_Account"]]).strip(),
                     default_comment=default_comment,
                     category=str(padded[header_index["Category"]]).strip(),
+                    ammo_qty=_parse_decimal(padded[header_index["Ammo_Qty"]]),
+                    duo_gear_qty=_parse_decimal(padded[header_index["Duo_Gear_Qty"]]),
+                    shelf_qty=_parse_decimal(padded[header_index["Shelf_Qty"]]),
+                    last_inventory_date=str(padded[header_index.get("Last_Inventory_Date", "")]).strip(),
                 )
             except Exception as exc:
                 raise SheetsApiError(f"Invalid CD_Master row data: {exc}") from exc
