@@ -14,6 +14,7 @@ from entry_handlers import (
     handle_performance_entry,
     handle_recurring_entry,
     handle_transfer_entry,
+    handle_harvest_entry,
 )
 from journal_logic import JournalLogicError
 from models import JournalEntry
@@ -128,11 +129,14 @@ def main() -> int:
             builder = lambda: handle_cd_sales_entry(client, debug=debug)
             debug_print(debug, "Selected workflow: CD Sales / Donation Jar Entry")
         elif choice == "8":
+            builder = lambda: handle_harvest_entry(client, valid_accounts, debug=debug)
+            debug_print(debug, "Selected workflow: Harvest from Sales Locations")
+        elif choice == "9":
             debug_print(debug, "User selected Exit")
             print("Goodbye.")
             return 0
         else:
-            print("Please choose 1, 2, 3, 4, 5, 6, 7, or 8.")
+            print("Please choose 1-9.")
             continue
 
         try:

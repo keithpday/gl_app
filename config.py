@@ -52,12 +52,16 @@ CHECKING_ACCOUNT = "Checking - 0520"
 SAVINGS_ACCOUNT = "Savings - 0520"
 CASH_ACCOUNT = "Cash"
 CASH_IN_CD_CASE_ACCOUNT = "Cash in CD Case"
+
 CASH_IN_DUO_GEAR_ACCOUNT = "Cash in Duo Gear"
 CHECKING_ACCOUNT = "Checking - 0520"
 VENMO_ACCOUNT = "Venmo"
+PAYPAL_ACCOUNT = "PayPal"
 SALES_PERFORMANCES_ACCOUNT = "Sales - Performances"
 DONATIONS_ACCOUNT = "Cash Contributions"
-CASH_PAYMENT_FEES_ACCOUNT = "Cash Payment Fees"
+HELCIM_PAYMENT_FEES_ACCOUNT = "Helcim Payment Fees"
+VENMO_PAYMENT_FEES_ACCOUNT = "Venmo Payment Fees"
+PAYPAL_PAYMENT_FEES_ACCOUNT = "PayPal Payment Fees"
 
 # CD master sheet
 CD_MASTER_SPREADSHEET_ID = "1xfRniECqyI1liKrmnh3gD9zPobQfJLD8yHQF4QjiRzg"

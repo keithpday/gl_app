@@ -8,10 +8,14 @@ from typing import Iterable
 
 from config import (
     CASH_IN_CD_CASE_ACCOUNT,
-    CASH_PAYMENT_FEES_ACCOUNT,
     CHECKING_ACCOUNT,
     DONATIONS_ACCOUNT,
     SAVINGS_ACCOUNT,
+    HELCIM_PAYMENT_FEES_ACCOUNT,
+    VENMO_PAYMENT_FEES_ACCOUNT,
+    PAYPAL_PAYMENT_FEES_ACCOUNT,
+    VENMO_ACCOUNT,
+    PAYPAL_ACCOUNT,
 )
 from models import JournalEntry, JournalLine
 
@@ -193,14 +197,37 @@ def build_cd_sales_entry(
         credit=cogs_total,
     ))
 
-    if fee_total > Decimal("0.00"):
+    # Add payment fee lines based on payment method
+    if payment_method == "Helcim" and fee_total > Decimal("0.00"):
         entry.lines.append(JournalLine(
-            account=CASH_PAYMENT_FEES_ACCOUNT,
+            account=HELCIM_PAYMENT_FEES_ACCOUNT,
             debit=fee_total,
             credit=Decimal("0.00"),
         ))
         entry.lines.append(JournalLine(
-            account=deposit_account,
+            account=CHECKING_ACCOUNT,
+            debit=Decimal("0.00"),
+            credit=fee_total,
+        ))
+    elif payment_method == "Venmo" and fee_total > Decimal("0.00"):
+        entry.lines.append(JournalLine(
+            account=VENMO_PAYMENT_FEES_ACCOUNT,
+            debit=fee_total,
+            credit=Decimal("0.00"),
+        ))
+        entry.lines.append(JournalLine(
+            account=VENMO_ACCOUNT,
+            debit=Decimal("0.00"),
+            credit=fee_total,
+        ))
+    elif payment_method == "PayPal" and fee_total > Decimal("0.00"):
+        entry.lines.append(JournalLine(
+            account=PAYPAL_PAYMENT_FEES_ACCOUNT,
+            debit=fee_total,
+            credit=Decimal("0.00"),
+        ))
+        entry.lines.append(JournalLine(
+            account=PAYPAL_ACCOUNT,
             debit=Decimal("0.00"),
             credit=fee_total,
         ))

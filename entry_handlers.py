@@ -1,6 +1,90 @@
-"""Workflow handlers that gather input and call the business logic."""
 
-from __future__ import annotations
+# ...existing imports...
+
+def handle_harvest_entry(client, valid_accounts, debug: bool = False):
+    print("\nHarvest from Sales Locations")
+    entry_date = prompt_date()
+    sources = [
+        ("Cash in CD Case", "cash_cd_case"),
+        ("Cash in Duo Gear", "cash_duo_gear"),
+        ("Venmo", "venmo"),
+        ("PayPal", "paypal"),
+    ]
+    print("Select source:")
+    for idx, (label, _) in enumerate(sources, 1):
+        print(f"{idx}. {label}")
+    while True:
+        src_choice = input("Choice: ").strip()
+        try:
+            src_idx = int(src_choice)
+            if 1 <= src_idx <= len(sources):
+                src_label, src_key = sources[src_idx - 1]
+                break
+        except ValueError:
+            pass
+        print(f"Please enter a number from 1 to {len(sources)}.")
+
+    money_type = None
+    if src_key in ("cash_cd_case", "cash_duo_gear"):
+        print("Type of money:")
+        print("1. Cash")
+        print("2. Checks")
+        while True:
+            mt_choice = input("Choice: ").strip()
+            if mt_choice == "1":
+                money_type = "cash"
+                break
+            elif mt_choice == "2":
+                money_type = "checks"
+                break
+            print("Please enter 1 or 2.")
+
+    amount = prompt_amount()
+    comment = prompt_text("Comment")
+
+    if src_key == "cash_cd_case":
+        source_account = CASH_IN_CD_CASE_ACCOUNT
+    elif src_key == "cash_duo_gear":
+        source_account = CASH_IN_DUO_GEAR_ACCOUNT
+    elif src_key == "venmo":
+        source_account = VENMO_ACCOUNT
+    elif src_key == "paypal":
+        source_account = PAYPAL_ACCOUNT
+
+    if src_key in ("venmo", "paypal"):
+        dest_account = CHECKING_ACCOUNT
+        description = f"Harvest {src_label} to Checking"
+    elif money_type == "cash":
+        dest_account = CASH_ACCOUNT
+        description = f"Harvest cash from {src_label}"
+    elif money_type == "checks":
+        dest_account = CHECKING_ACCOUNT
+        description = f"Harvest checks from {src_label}"
+    else:
+        raise ValueError("Invalid money type or source.")
+
+    entry = JournalEntry(
+        entry_date=entry_date,
+        description=description,
+        comment=comment,
+        lines=[
+            JournalLine(
+                account=dest_account,
+                debit=amount,
+                credit=Decimal("0.00"),
+            ),
+            JournalLine(
+                account=source_account,
+                debit=Decimal("0.00"),
+                credit=amount,
+            ),
+        ],
+    )
+    if debug:
+        print(f"[DEBUG:handler] Built harvest entry: {description}, {amount} from {source_account} to {dest_account}")
+    return entry
+
+
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -13,6 +97,7 @@ from config import (
     CHECKING_ACCOUNT,
     SALES_PERFORMANCES_ACCOUNT,
     VENMO_ACCOUNT,
+    PAYPAL_ACCOUNT,
 )
 from models import CDProduct, JournalEntry, JournalLine
 from journal_logic import (
@@ -418,12 +503,12 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
     quantity = Decimal(prompt_int("Quantity sold"))
 
     payment_method = prompt_account_from_list(
-        ["Cash", "Check", "Helcim", "Venmo"],
+        ["Cash", "Check", "Helcim", "Venmo", "PayPal"],
         label="Payment method",
     )
 
     # Only prompt for fees for payment methods that might have them
-    if payment_method in ["Helcim", "Venmo"]:
+    if payment_method in ["Helcim", "Venmo", "PayPal"]:
         fee_total = prompt_amount_with_default("Total fees", Decimal("0.00"))
     else:
         fee_total = Decimal("0.00")
@@ -449,6 +534,7 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
             "Check": CHECKING_ACCOUNT,
             "Helcim": CHECKING_ACCOUNT,
             "Venmo": VENMO_ACCOUNT,
+            "PayPal": PAYPAL_ACCOUNT,
         }.get(payment_method, CASH_IN_CD_CASE_ACCOUNT)
 
     debug_print(debug, f"CD selected: {cd.cd_name}")

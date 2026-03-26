@@ -11,7 +11,9 @@ from config import (
     BAND_MEMBERS_SHEET_NAME,
     CASH_ACCOUNT,
     CASH_IN_CD_CASE_ACCOUNT,
-    CASH_PAYMENT_FEES_ACCOUNT,
+    HELCIM_PAYMENT_FEES_ACCOUNT,
+    VENMO_PAYMENT_FEES_ACCOUNT,
+    PAYPAL_PAYMENT_FEES_ACCOUNT,
     CD_MASTER_SHEET_NAME,
     CD_MASTER_SPREADSHEET_ID,
     CHART_ACCOUNT_COLUMN_NUMBER,
@@ -565,7 +567,8 @@ class SheetsClient:
 def _decimal_to_sheet_string(value: Decimal) -> str:
     if value == Decimal("0.00"):
         return ""
-    return f"{value:.2f}"
+    # Always show two decimal places for nonzero values
+    return f"{value.quantize(Decimal('0.01')):.2f}"
 
 
 def _parse_decimal(value: object) -> Decimal:

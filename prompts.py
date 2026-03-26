@@ -18,7 +18,8 @@ def prompt_menu_choice() -> str:
     print("5. Post Performance Entry")
     print("6. Move Completed Gigs to History by Date")
     print("7. CD Sales / Donation Jar Entry")
-    print("8. Exit")
+    print("8. Harvest from Sales Locations")
+    print("9. Exit")
     return input("Select option: ").strip()
 
 
