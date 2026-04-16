@@ -118,6 +118,7 @@ from prompts import (
     prompt_seq_number,
     prompt_text,
     prompt_transaction_number,
+    prompt_yes_no,
 )
 from sheets_api import SheetsClient
 
@@ -431,17 +432,20 @@ def handle_performance_entry(client: SheetsClient, debug: bool = False) -> Journ
         doc_nbr=doc_nbr,
     ))
     
-    # Cash line (credit)
-    entry.lines.append(JournalLine(
-        account=CASH_ACCOUNT,
-        debit=Decimal("0.00"),
-        credit=cash_amount,
-    ))
+    # Cash line (credit) only if all paid with cash
+    all_cash = prompt_yes_no("All band members paid with cash?", default_yes=True)
+    if all_cash:
+        entry.lines.append(JournalLine(
+            account=CASH_ACCOUNT,
+            debit=Decimal("0.00"),
+            credit=cash_amount,
+        ))
     
     # Band member pay lines (debit)
     band_positions = ["Vocal", "Piano", "Bass", "Drums", "Guitar", "Vibes"]
     paid_members = set()
-    
+    payment_methods = ["Cash", "PayPal", "Venmo"]
+
     for position in band_positions:
         member_alias = selected_gig.get(position, "").strip()
         # Treat "None" (string) the same as blank/empty
@@ -450,13 +454,44 @@ def handle_performance_entry(client: SheetsClient, debug: bool = False) -> Journ
             if member_data:
                 member_name = member_data.get("Name", member_alias)
                 pay_account = f"*Pay {member_name}"
-                entry.lines.append(JournalLine(
-                    account=pay_account,
-                    debit=member_pay,
-                    credit=Decimal("0.00"),
-                ))
-                paid_members.add(member_alias)
-                debug_print(debug, f"Added pay line for {member_name}: ${member_pay}")
+                if all_cash:
+                    # All paid with cash as before
+                    entry.lines.append(JournalLine(
+                        account=pay_account,
+                        debit=member_pay,
+                        credit=Decimal("0.00"),
+                    ))
+                    paid_members.add(member_alias)
+                    debug_print(debug, f"Added pay line for {member_name}: ${member_pay} (Cash)")
+                else:
+                    # Prompt for payment method for this member
+                    print(f"\nPayment method for {member_name}:")
+                    method = prompt_account_from_list(payment_methods, label="Select payment method")
+                    comment_text = ""
+                    if method == "Cash":
+                        credit_account = CASH_ACCOUNT
+                    elif method == "PayPal":
+                        credit_account = CHECKING_ACCOUNT  # 'Checking - 0520'
+                        comment_text = "Via PayPal"
+                    elif method == "Venmo":
+                        credit_account = VENMO_ACCOUNT
+                    else:
+                        credit_account = CASH_ACCOUNT  # fallback
+                    # Add pay line (debit member)
+                    entry.lines.append(JournalLine(
+                        account=pay_account,
+                        debit=member_pay,
+                        credit=Decimal("0.00"),
+                    ))
+                    # Add offsetting credit line, with comment for PayPal
+                    entry.lines.append(JournalLine(
+                        account=credit_account,
+                        debit=Decimal("0.00"),
+                        credit=member_pay,
+                        comment=comment_text,
+                    ))
+                    paid_members.add(member_alias)
+                    debug_print(debug, f"Added pay line for {member_name}: ${member_pay} ({method})")
     
     # Validate entry
     validate_entry(entry)
@@ -526,13 +561,14 @@ def handle_cd_sales_entry(client: SheetsClient, debug: bool = False) -> JournalE
     comment = prompt_text("Comment", default=comment_default)
 
     # Determine deposit account by payment method and source location
-    if sold_from_location == "From Duo_Gear_Qty":
+    if payment_method == "Helcim":
+        deposit_account = CHECKING_ACCOUNT
+    elif sold_from_location == "From Duo_Gear_Qty":
         deposit_account = CASH_IN_DUO_GEAR_ACCOUNT
     else:
         deposit_account = {
             "Cash": CASH_IN_CD_CASE_ACCOUNT,
             "Check": CHECKING_ACCOUNT,
-            "Helcim": CHECKING_ACCOUNT,
             "Venmo": VENMO_ACCOUNT,
             "PayPal": PAYPAL_ACCOUNT,
         }.get(payment_method, CASH_IN_CD_CASE_ACCOUNT)

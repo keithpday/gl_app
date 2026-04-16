@@ -399,6 +399,23 @@ class SheetsClient:
             except Exception as exc:
                 raise SheetsApiError(f"Unable to update formulas for row {i}: {exc}") from exc
 
+        # Set number format for Debit and Credit columns for new rows
+        try:
+            debit_col = header_index["Debit"] + 1  # 1-based index for gspread
+            credit_col = header_index["Credit"] + 1
+            # Google Sheets uses A1 notation, so get column letter
+            def col_letter(idx):
+                # Only works for up to 26 columns (A-Z)
+                return chr(ord('A') + idx - 1)
+            debit_range = f'{col_letter(debit_col)}{old_row_count + 1}:{col_letter(debit_col)}{new_row_count}'
+            credit_range = f'{col_letter(credit_col)}{old_row_count + 1}:{col_letter(credit_col)}{new_row_count}'
+            fmt = {"numberFormat": {"type": "NUMBER", "pattern": "0.00"}}
+            self.journal_ws.format(debit_range, fmt)
+            self.journal_ws.format(credit_range, fmt)
+            self._debug(f"Set number format for Debit ({debit_range}) and Credit ({credit_range}) columns.")
+        except Exception as exc:
+            self._debug(f"Warning: Unable to set number format for Debit/Credit columns: {exc}")
+
     def get_performance_schedule(self) -> list[dict[str, str]]:
         """Get the first MAX_SCHEDULE_ROWS_TO_DISPLAY rows from the performance schedule."""
         try:
